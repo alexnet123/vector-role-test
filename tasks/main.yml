@@ -1,0 +1,85 @@
+---
+# tasks file for vector-role
+
+- name: Define Vector package URL for Debian
+  set_fact:
+    vector_pkg_url: "https://packages.timber.io/vector/0.34.1/vector_0.34.1-1_amd64.deb"
+    vector_pkg_dest: "/tmp/vector.deb"
+  when: ansible_os_family == "Debian"
+
+- name: Define Vector package URL for RedHat
+  set_fact:
+    vector_pkg_url: "https://packages.timber.io/vector/0.34.1/vector-0.34.1-1.x86_64.rpm"
+    vector_pkg_dest: "/tmp/vector.rpm"
+  when: ansible_os_family == "RedHat"
+
+- name: Update CentOS 8 repository configuration
+  ansible.builtin.shell:
+    cmd: |
+      sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+      sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+  when: ansible_os_family == "RedHat" and ansible_distribution_major_version == "8"
+
+- name: Run yum update on CentOS 8 (excluding Ansible)
+  ansible.builtin.yum:
+    name: '*'
+    state: latest
+    exclude: ansible
+  when: ansible_os_family == "RedHat" and ansible_distribution_major_version == "8"
+
+- name: Update CA certificates (Debian)
+  ansible.builtin.apt:
+    update_cache: yes
+    name: ca-certificates
+    state: latest
+  when: ansible_os_family == "Debian"
+
+- name: Download Vector package
+  ansible.builtin.get_url:
+    url: "{{ vector_pkg_url }}"
+    dest: "{{ vector_pkg_dest }}"
+    mode: '0644'
+
+- name: Install Vector package (Debian)
+  ansible.builtin.apt:
+    deb: "{{ vector_pkg_dest }}"
+  when: ansible_os_family == "Debian"
+
+- name: Install Vector package (RedHat)
+  ansible.builtin.yum:
+    name: "{{ vector_pkg_dest }}"
+    disable_gpg_check: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Ensure Vector directory exists
+  ansible.builtin.file:
+    path: "/etc/vector"
+    state: directory
+    mode: '0755'
+
+- name: Deploy Vector configuration
+  ansible.builtin.template:
+    src: "templates/vector_config.yaml.j2"
+    dest: "/etc/vector/vector.yaml"
+    mode: '0644'
+
+#- name: Start and enable Vector service
+#  ansible.builtin.systemd:
+#    name: vector
+#    state: started
+#    enabled: true
+#  when: ansible_service_mgr == "systemd"
+
+- name: Check if running in a container
+  stat:
+    path: /.dockerenv
+  register: dockerenv_stat
+
+- name: Directly start Vector service in non-systemd environments
+  ansible.builtin.command:
+    cmd: vector --config /etc/vector/vector.yaml
+  when: ansible_service_mgr != "systemd" and not dockerenv_stat.stat.exists
+  async: 5
+  poll: 0
+  ignore_errors: yes
+

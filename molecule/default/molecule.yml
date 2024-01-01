@@ -1,0 +1,34 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+ - name: instance-centos8
+   image: centos:8
+   pre_build_image: true
+ - name: instance-ubuntu
+   image: ubuntu:latest
+   pre_build_image: true
+   ansible_python_interpreter: /usr/bin/python3
+provisioner:
+  name: ansible
+  playbooks:
+    prepare: prepare.yml
+verifier:
+  name: ansible
+scenario:
+  name: default
+  test_sequence:
+    - dependency
+    - lint
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - side_effect
+    - verify
+    - cleanup
+    - destroy

@@ -1,0 +1,11 @@
+- name: Prepare
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Install Python for Ansible (Ubuntu)
+      raw: apt-get update && apt-get install -y python3-minimal
+      when: "'ubuntu' in inventory_hostname"
+
+#    - name: Install Python for Ansible (CentOS)
+#      raw: yum -y install python3
+#      when: "'centos' in inventory_hostname"

@@ -1,10 +1,33 @@
 ---
-# This is an example playbook to execute Ansible tests.
+# This playbook tests the Vector installation and configuration.
 
-- name: Verify
+- name: Verify Vector Role
   hosts: all
   gather_facts: false
   tasks:
-  - name: Example assertion
-    assert:
-      that: true
+    - name: Проверка установки Vector
+      ansible.builtin.command:
+        cmd: "which vector"
+      register: which_vector
+      ignore_errors: true
+
+    - name: Убедиться, что Vector установлен
+      assert:
+        that:
+          - which_vector.rc == 0
+        fail_msg: "Vector не установлен"
+        success_msg: "Vector успешно установлен"
+
+    - name: Проверка конфигурационного файла Vector
+      ansible.builtin.stat:
+        path: "/etc/vector/vector.yaml"
+      register: vector_config
+
+    - name: Убедиться, что конфигурационный файл Vector существует
+      assert:
+        that:
+          - vector_config.stat.exists
+        fail_msg: "Конфигурационный файл Vector отсутствует"
+        success_msg: "Конфигурационный файл Vector найден"
+
+
